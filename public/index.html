@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>DU電台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+<style>
+  .page{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 22px;text-align:center}
+  .lamp{display:inline-flex;align-items:center;gap:10px;border:2px solid var(--green);border-radius:12px;padding:9px 18px;margin-bottom:22px;box-shadow:0 0 30px rgba(29,185,84,.45)}
+  .lamp .led{width:11px;height:11px;animation:blink 1.4s infinite}
+  .lamp span{font-weight:900;letter-spacing:4px;color:var(--green);font-size:18px}
+  h1{font-size:34px;font-weight:900;margin:0 0 6px} h1 .g{color:var(--green)}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 36px;line-height:1.6}
+  .choices{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;width:100%;max-width:640px}
+  .choice{flex:1;min-width:240px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:30px 24px;
+    cursor:pointer;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:.15s;display:block}
+  .choice:hover{border-color:var(--green);transform:translateY(-3px)}
+  .choice .ic{width:74px;height:74px;border-radius:50%;margin:0 auto 16px;display:grid;place-items:center;font-size:34px}
+  .choice.point .ic{background:var(--green);color:var(--greenink)}
+  .choice.player .ic{background:#0a0f0c;border:2px solid var(--green);color:var(--green)}
+  .choice h2{margin:0 0 8px;font-size:21px;font-weight:900}
+  .choice p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.6}
+  .foot{margin-top:34px;color:var(--muted2);font-size:12.5px;line-height:1.7}
+  .brandtop{position:absolute;top:24px;left:24px}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand brandtop"><div class="mark"></div><div style="text-align:left"><div class="bcn">DU電台</div><div class="ben">DU RADIO</div></div></div>
+  <div class="lamp"><span class="led"></span><span>ON AIR</span></div>
+  <h1>歡迎來到 <span class="g">DU電台</span></h1>
+  <p class="sub">請問你是要點歌，還是這台要負責放歌？</p>
+  <div class="choices">
+    <a class="choice point" href="point.html">
+      <div class="ic">🎤</div><h2>我要點歌</h2>
+      <p>用手機或電腦，貼連結或搜歌名<br>加入候播清單、拖曳排序、插播</p>
+    </a>
+    <a class="choice player" href="player.html">
+      <div class="ic">📻</div><h2>我是放送端</h2>
+      <p>接喇叭那台選這個<br>自動照清單放歌、一首接一首</p>
+    </a>
+  </div>
+  <p class="foot">同事 → 點「我要點歌」　·　放歌的電腦 → 點「我是放送端」（免密碼）</p>
+</div>
+</body>
+</html>

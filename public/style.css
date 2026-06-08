@@ -1,0 +1,23 @@
+/* DU電台 · Spotify 深綠黑膠牆 共用樣式 */
+:root{
+  --bg:#0a0f0c; --bg2:#0e150f; --card:#121a15; --card2:#0a0f0c;
+  --ink:#ffffff; --muted:#9fb3a6; --muted2:#7f968a;
+  --green:#1db954; --green-d:#169c46; --greenink:#04150b;
+  --line:rgba(255,255,255,.08); --shadow:0 18px 46px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box} html,body{margin:0}
+body{font-family:'Figtree','Noto Sans TC',system-ui,sans-serif;color:var(--ink);
+  background:var(--bg);background-image:
+    radial-gradient(1000px 480px at 80% -10%,rgba(29,185,84,.22),transparent 60%),
+    radial-gradient(820px 460px at -6% 112%,rgba(29,185,84,.1),transparent 60%);
+  background-attachment:fixed;min-height:100vh}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{50%{opacity:.3}}
+.brand{display:flex;align-items:center;gap:13px}
+.mark{width:44px;height:44px;border-radius:50%;flex:none;background:var(--green);position:relative;box-shadow:0 0 26px rgba(29,185,84,.5)}
+.mark::after{content:"";position:absolute;inset:0;margin:auto;width:13px;height:13px;border-radius:50%;background:var(--bg)}
+.bcn{font-weight:900;font-size:23px;line-height:1}
+.ben{font-weight:700;color:var(--green);font-size:12px;letter-spacing:3px;margin-top:3px}
+.led{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+.btn{border:none;border-radius:999px;cursor:pointer;font-family:inherit;font-weight:800;background:var(--green);color:var(--greenink)}
+.btn.alt{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
