@@ -110,8 +110,16 @@
 <script>
 let player,ready=false,started=false,currentVideo=null,playing=false,wantStart=false,target=null;
 let everPlayed=false,watchdog=null;
-function startUp(){document.getElementById('start').style.display='none';document.getElementById('stage').style.display='flex';
-  document.getElementById('shareUrl').textContent=location.origin;started=true;wantStart=true;if(ready)beginPlay();connect();}
+let helloSent=false,pendingStart=false;
+function startUp(){ pendingStart=true; connect(); } // 先連線，收到狀態後再決定是否接手
+function finalizeStart(){
+  helloSent=true; send({type:'hello',role:'player'});
+  document.getElementById('start').style.display='none';
+  document.getElementById('stage').style.display='flex';
+  document.getElementById('shareUrl').textContent=location.origin;
+  started=true; wantStart=true; if(ready)beginPlay();
+}
+function abortStart(){ pendingStart=false; try{ws&&ws.close();}catch(e){} location.reload(); }
 function onYouTubeIframeAPIReady(){
   var pv={autoplay:0,controls:1,rel:0,modestbranding:1,playsinline:1};
   if(location.protocol!=='file:')pv.origin=location.origin;
@@ -133,10 +141,18 @@ function loadCurrent(){if(ready&&target){currentVideo=target.videoId;everPlayed=
 
 let ws,reconnectT;
 function connect(){ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host);
-  ws.onopen=()=>send({type:'hello',role:'player'});ws.onmessage=(e)=>handle(JSON.parse(e.data));
+  ws.onopen=()=>{ if(helloSent) send({type:'hello',role:'player'}); }; ws.onmessage=(e)=>handle(JSON.parse(e.data));
   ws.onclose=()=>{clearTimeout(reconnectT);reconnectT=setTimeout(connect,1500);};}
 function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));}
-function handle(m){if(m.type==='state')render(m);else if(m.type==='online')document.getElementById('onlineN').textContent=m.online;
+function handle(m){
+  if(m.type==='state' && pendingStart && !helloSent){
+    pendingStart=false;
+    if((m.players||0) >= 1){
+      if(!confirm('⚠️ 已經有一台在放送了，確定要接手嗎？\n（兩台同時放會聲音重疊）')){ abortStart(); return; }
+    }
+    finalizeStart();
+  }
+  if(m.type==='state')render(m);else if(m.type==='online')document.getElementById('onlineN').textContent=m.online;
   else if(m.type==='chat')flyDanmaku(m);else if(m.type==='command'){if(m.action==='load')maybeLoad();else doCommand(m);}}
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(t){t=Math.max(0,t|0);const m=(t/60)|0,s=t%60;return m+':'+String(s).padStart(2,'0');}

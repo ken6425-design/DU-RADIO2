@@ -150,12 +150,14 @@ async function maybeAutoDJ() {
 }
 
 /* ----------------------------- 廣播 ----------------------------- */
+function playerCount() { let n = 0; for (const c of clients) if (c.role === 'player') n++; return n; }
 function publicState() {
   return {
     type: 'state', nowPlaying: state.nowPlaying, queue: state.queue,
     history: state.history.slice(0, 60),
     leaderboard: Object.entries(state.leaderboard).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 15),
     online: clients.size,
+    players: playerCount(),
   };
 }
 function broadcast(obj, filter) {
@@ -195,7 +197,7 @@ wss.on('connection', (ws) => {
     switch (msg.type) {
       case 'hello':
         client.role = msg.role === 'player' ? 'player' : 'remote';
-        if (client.role === 'player') maybeAutoDJ();
+        if (client.role === 'player') { maybeAutoDJ(); broadcastState(); }
         break;
 
       case 'add': {
