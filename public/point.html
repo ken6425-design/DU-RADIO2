@@ -75,7 +75,7 @@
   .urlbox{display:flex;gap:8px} .urlbox input{flex:1;font-size:13px}
   #chatlog{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px} .cmsg{font-size:14px} .cmsg b{color:var(--green)}
 
-  .lyrics-box{max-height:300px;overflow-y:auto;line-height:1.9;font-size:15px;-webkit-overflow-scrolling:touch}
+  .lyrics-box{max-height:300px;overflow-y:auto;line-height:1.9;font-size:15px;position:relative;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
   .lyrics-box::-webkit-scrollbar{width:5px}.lyrics-box::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
   .lyr-line{padding:3px 2px;color:var(--muted);transition:color .2s,transform .2s}
   .lyr-line.active{color:var(--green);font-weight:800;transform:translateX(4px)}
@@ -281,11 +281,17 @@ function highlightLyrics(){
   for(let i=0;i<lyricLines.length;i++){ if(lyricLines[i].t<=curPos+0.25) idx=i; else break; }
   const box=document.getElementById('lyricsBox'); if(!box) return;
   const cur=box.querySelector('.lyr-line.active');
-  if(cur && +cur.dataset.i===idx) return;
+  if(cur && +cur.dataset.i===idx) return;           // 沒換行就不動，避免一直捲
   box.querySelectorAll('.lyr-line.active').forEach(e=>e.classList.remove('active'));
-  if(idx<0) return;
+  if(idx<0){ box.scrollTop=0; return; }
   const el=box.querySelector('.lyr-line[data-i="'+idx+'"]');
-  if(el){ el.classList.add('active'); box.scrollTop = el.offsetTop - box.clientHeight/2 + el.clientHeight/2; }
+  if(el){
+    el.classList.add('active');
+    // 以歌詞框為基準，把目前這句捲到正中央（offsetTop 相對於已設 position:relative 的框）
+    let target = el.offsetTop - (box.clientHeight/2) + (el.clientHeight/2);
+    target = Math.max(0, Math.min(target, box.scrollHeight - box.clientHeight));
+    box.scrollTop = target;
+  }
 }
 function searchLyrics(){
   const t=document.querySelector('#stageBody .ntitle');
