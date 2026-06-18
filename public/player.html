@@ -109,7 +109,7 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
 let player,ready=false,started=false,currentVideo=null,playing=false,wantStart=false,target=null;
-let everPlayed=false,watchdog=null;
+let everPlayed=false,watchdog=null,loadAttempt=0;
 let helloSent=false,pendingStart=false;
 function startUp(){ pendingStart=true; connect(); } // 先連線，收到狀態後再決定是否接手
 function finalizeStart(){
@@ -130,14 +130,37 @@ function beginPlay(){ if(target) loadCurrent(); }
 function onState(e){if(e.data===YT.PlayerState.ENDED){clearTimeout(watchdog);send({type:'ended',videoId:currentVideo});}
   if(e.data===YT.PlayerState.PLAYING){playing=true;everPlayed=true;clearTimeout(watchdog);setPP();document.getElementById('idle').style.display='none';setSpin(true);}
   if(e.data===YT.PlayerState.PAUSED){playing=false;setPP();setSpin(false);}}
-function onErr(e){ // 影片無法嵌入/失效 → 自動跳下一首
-  toast('這首無法播放（錯誤'+e.data+'），自動換下一首');
-  setTimeout(()=>{ if(currentVideo) send({type:'ended',videoId:currentVideo}); },1200);}
+function onErr(e){ // 影片載入錯誤：先重載一次，真的不行才換下一首
+  if(!currentVideo) return;
+  if(loadAttempt < 1){
+    loadAttempt++; clearTimeout(watchdog);
+    toast('載入不順，重試一次…');
+    setTimeout(()=>{ if(currentVideo) attemptLoad(); }, 900);
+  } else {
+    toast('這首無法播放（錯誤'+e.data+'），換下一首');
+    setTimeout(()=>{ if(currentVideo) send({type:'ended',videoId:currentVideo}); }, 800);
+  }
+}
 function setPP(){const b=document.getElementById('pp');if(b)b.textContent=playing?'⏸ 暫停':'▶ 播放';}
 function setSpin(on){document.getElementById('cover').classList.toggle('on',on);}
-function loadCurrent(){if(ready&&target){currentVideo=target.videoId;everPlayed=false;player.loadVideoById(target.videoId);document.getElementById('idle').style.display='none';setSpin(true);
-  clearTimeout(watchdog);var vid=currentVideo;
-  watchdog=setTimeout(()=>{ if(!everPlayed && currentVideo===vid){ toast('這首載入失敗，自動換下一首'); send({type:'ended',videoId:vid}); } },10000);}}
+function attemptLoad(){
+  if(!ready||!currentVideo) return;
+  everPlayed=false;
+  player.loadVideoById(currentVideo);
+  document.getElementById('idle').style.display='none'; setSpin(true);
+  clearTimeout(watchdog); var vid=currentVideo;
+  watchdog=setTimeout(()=>{
+    if(everPlayed || currentVideo!==vid) return;
+    if(loadAttempt < 1){ loadAttempt++; toast('載入較慢，重試一次…'); attemptLoad(); }
+    else { toast('這首載入失敗，自動換下一首'); send({type:'ended',videoId:vid}); }
+  }, 22000);
+}
+function loadCurrent(){
+  if(ready && target){
+    currentVideo=target.videoId; loadAttempt=0;
+    attemptLoad();
+  }
+}
 
 let ws,reconnectT;
 function connect(){ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host);

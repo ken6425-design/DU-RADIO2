@@ -185,6 +185,40 @@ app.get('/api/meta', async (req, res) => {
   res.json({ videoId: id, ...(await fetchVideoMeta(id)) });
 });
 
+/* 清洗 YouTube 標題，盡量留下「歌手 歌名」方便查歌詞 */
+function cleanForLyrics(title) {
+  let t = String(title || '');
+  t = t.replace(/[\(\[（【][^\)\]）】]*[\)\]）】]/g, ' '); // 去掉括號內容
+  t = t.replace(/[｜|].*/g, ' ');                          // 去掉直線後面的雜訊
+  const noise = /(official|music|video|mv|m\/v|lyrics?|audio|hd|4k|hq|live|performance|visualizer|cover|feat\.?|ft\.?|官方|高清|完整版|歌詞|動態歌詞|純享|現場|版)/gi;
+  t = t.replace(noise, ' ');
+  t = t.replace(/\s+/g, ' ').trim();
+  return t;
+}
+
+/* 歌詞查詢：LRCLIB（免費）。回傳 synced（帶時間軸）/ plain（純文字）/ none */
+app.get('/api/lyrics', async (req, res) => {
+  const raw = (req.query.title || '').toString().trim();
+  if (!raw) return res.json({ mode: 'none' });
+  const q = cleanForLyrics(raw) || raw;
+  try {
+    const r = await fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(q), {
+      headers: { 'User-Agent': 'DU-Radio (office jukebox)' },
+    });
+    if (!r.ok) return res.json({ mode: 'none' });
+    const arr = await r.json();
+    if (Array.isArray(arr) && arr.length) {
+      const synced = arr.find((x) => x.syncedLyrics && x.syncedLyrics.length > 5);
+      if (synced) return res.json({ mode: 'synced', synced: synced.syncedLyrics, track: synced.trackName, artist: synced.artistName });
+      const plain = arr.find((x) => x.plainLyrics && x.plainLyrics.length > 5);
+      if (plain) return res.json({ mode: 'plain', plain: plain.plainLyrics, track: plain.trackName, artist: plain.artistName });
+    }
+    res.json({ mode: 'none' });
+  } catch (e) {
+    res.json({ mode: 'none' });
+  }
+});
+
 /* ----------------------------- WebSocket ----------------------------- */
 wss.on('connection', (ws) => {
   const client = { ws, role: 'remote' };

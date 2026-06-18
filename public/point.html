@@ -74,6 +74,16 @@
   #qr{display:flex;justify-content:center;margin:6px 0 14px} #qr img,#qr canvas{border-radius:12px}
   .urlbox{display:flex;gap:8px} .urlbox input{flex:1;font-size:13px}
   #chatlog{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px} .cmsg{font-size:14px} .cmsg b{color:var(--green)}
+
+  .lyrics-box{max-height:300px;overflow-y:auto;line-height:1.9;font-size:15px;-webkit-overflow-scrolling:touch}
+  .lyrics-box::-webkit-scrollbar{width:5px}.lyrics-box::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+  .lyr-line{padding:3px 2px;color:var(--muted);transition:color .2s,transform .2s}
+  .lyr-line.active{color:var(--green);font-weight:800;transform:translateX(4px)}
+  .lyr-plain{white-space:pre-wrap;color:var(--ink);font-size:14.5px;line-height:1.8}
+  .lyr-empty{color:var(--muted2);text-align:center;padding:14px 0;font-size:14px}
+  .lyr-btn{display:inline-block;margin-top:6px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:10px 16px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
+  .lyr-btn:hover{border-color:var(--green);color:var(--green)}
+  .lyr-src{font-size:11px;color:var(--muted2);margin-top:8px}
 </style>
 </head>
 <body>
@@ -86,6 +96,8 @@
   </header>
 
   <div class="card np"><div id="stageBody"></div></div>
+  <div class="card"><div class="ph">歌詞 <span class="zh" id="lyricStatus">—</span></div>
+    <div id="lyricsBox" class="lyrics-box"><div class="lyr-empty">播放歌曲時，這裡會顯示歌詞</div></div></div>
 
   <div class="card">
     <div class="ph">點一首歌</div>
@@ -138,6 +150,7 @@ function connect(){ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+':
   ws.onclose=()=>{clearTimeout(reconnectT);reconnectT=setTimeout(connect,1500);};}
 function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));} connect();
 let lastQueue=[];
+let lyricVideo=null, lyricMode='none', lyricLines=[], curPos=0, lyricToken=0;
 function handle(m){if(m.type==='state'){lastQueue=m.queue;render(m);}else if(m.type==='online')document.getElementById('onlineN').textContent=m.online;
   else if(m.type==='progress')updateProgress(m);else if(m.type==='toast')toast(m.message);
   else if(m.type==='error')toast('⚠️ '+m.message);else if(m.type==='chat')addChat(m);}
@@ -153,7 +166,11 @@ function render(s){
       '<div class="nby">由 <b>'+esc(n.requester)+'</b> 點播</div>'+
       '<div class="line"><i id="npbar"></i></div><div class="tt"><span id="npcur">0:00</span><span id="npdur">'+fmt(n.duration)+'</span></div></div></div>';
     updateProgress(n);
-  } else { b.innerHTML='<div class="np-empty">📻 頻道待機中，點第一首歌！</div>'; }
+    if(n.videoId!==lyricVideo){ lyricVideo=n.videoId; fetchLyrics(n.title, n.videoId); }
+  } else { b.innerHTML='<div class="np-empty">📻 頻道待機中，點第一首歌！</div>';
+    lyricVideo=null; lyricMode='none'; lyricLines=[];
+    document.getElementById('lyricStatus').textContent='—';
+    document.getElementById('lyricsBox').innerHTML='<div class="lyr-empty">播放歌曲時，這裡會顯示歌詞</div>'; }
   document.getElementById('queueN').textContent=s.queue.length;
   const ql=document.getElementById('queueList');
   ql.innerHTML=s.queue.length?s.queue.map((q,i)=>
@@ -170,7 +187,8 @@ function render(s){
   const bl=document.getElementById('boardList');
   bl.innerHTML=s.leaderboard.length?s.leaderboard.map((b,i)=>'<div class="lb"><span class="rk">'+(i+1)+'</span><span class="nm">'+esc(b.name)+'</span><span class="ct">'+b.count+' 首</span></div>').join(''):'<div class="empty">還沒有人上榜，先點一首吧！</div>';
 }
-function updateProgress(p){const bar=document.getElementById('npbar');if(!bar)return;
+function updateProgress(p){ if(typeof p.position==='number') curPos=p.position; if(lyricMode==='synced') highlightLyrics();
+  const bar=document.getElementById('npbar');if(!bar)return;
   bar.style.width=(p.duration?Math.min(100,p.position/p.duration*100):0)+'%';
   const c=document.getElementById('npcur'),d=document.getElementById('npdur');if(c)c.textContent=fmt(p.position);if(d&&p.duration)d.textContent=fmt(p.duration);}
 
@@ -215,6 +233,64 @@ function openShare(){document.getElementById('shareModal').classList.add('show')
   const qd=document.getElementById('qr');qd.innerHTML='';try{new QRCode(qd,{text:url,width:180,height:180,colorDark:'#0a0f0c',colorLight:'#ffffff'});}catch(e){}}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 function copyUrl(){navigator.clipboard?.writeText(document.getElementById('shareUrl').value);toast('✅ 已複製網址');}
+
+async function fetchLyrics(title, vid){
+  const box=document.getElementById('lyricsBox'), st=document.getElementById('lyricStatus');
+  st.textContent='搜尋中…'; box.innerHTML='<div class="lyr-empty">歌詞搜尋中…</div>';
+  const token=++lyricToken;
+  try{
+    const r=await fetch('/api/lyrics?title='+encodeURIComponent(title||''));
+    const j=await r.json();
+    if(token!==lyricToken || vid!==lyricVideo) return; // 期間換歌了
+    if(j.mode==='synced'){
+      lyricMode='synced'; lyricLines=parseLRC(j.synced);
+      st.textContent='♪ 跟著音樂';
+      box.innerHTML=lyricLines.map((l,i)=>'<div class="lyr-line" data-i="'+i+'">'+esc(l.text||'♪')+'</div>').join('');
+      highlightLyrics();
+    } else if(j.mode==='plain'){
+      lyricMode='plain'; lyricLines=[];
+      st.textContent='純文字';
+      box.innerHTML='<div class="lyr-plain">'+esc(j.plain)+'</div>';
+    } else {
+      lyricMode='none'; lyricLines=[];
+      st.textContent='找不到';
+      box.innerHTML='<div class="lyr-empty">這首找不到歌詞<br><button class="lyr-btn" onclick="searchLyrics()">🔍 上網搜尋歌詞</button></div>';
+    }
+  }catch(e){
+    if(token!==lyricToken) return;
+    lyricMode='none';
+    document.getElementById('lyricStatus').textContent='找不到';
+    box.innerHTML='<div class="lyr-empty">歌詞載入失敗<br><button class="lyr-btn" onclick="searchLyrics()">🔍 上網搜尋歌詞</button></div>';
+  }
+}
+function parseLRC(str){
+  const out=[]; const lines=String(str).split(/\r?\n/);
+  const re=/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+  for(const line of lines){
+    let m, last=0, stamps=[]; re.lastIndex=0;
+    while((m=re.exec(line))){ const mm=+m[1], ss=+m[2], ms=m[3]?+(m[3].padEnd(3,'0')):0; stamps.push(mm*60+ss+ms/1000); last=re.lastIndex; }
+    const text=line.slice(last).trim();
+    for(const t of stamps) out.push({t, text});
+  }
+  out.sort((a,b)=>a.t-b.t);
+  return out;
+}
+function highlightLyrics(){
+  if(lyricMode!=='synced'||!lyricLines.length) return;
+  let idx=-1;
+  for(let i=0;i<lyricLines.length;i++){ if(lyricLines[i].t<=curPos+0.25) idx=i; else break; }
+  const box=document.getElementById('lyricsBox'); if(!box) return;
+  const cur=box.querySelector('.lyr-line.active');
+  if(cur && +cur.dataset.i===idx) return;
+  box.querySelectorAll('.lyr-line.active').forEach(e=>e.classList.remove('active'));
+  if(idx<0) return;
+  const el=box.querySelector('.lyr-line[data-i="'+idx+'"]');
+  if(el){ el.classList.add('active'); box.scrollTop = el.offsetTop - box.clientHeight/2 + el.clientHeight/2; }
+}
+function searchLyrics(){
+  const t=document.querySelector('#stageBody .ntitle');
+  const q=t?t.textContent:''; window.open('https://www.google.com/search?q='+encodeURIComponent(q+' 歌詞 lyrics'),'_blank');
+}
 function toast(msg){const c=document.getElementById('toasts');const d=document.createElement('div');d.className='toast';d.textContent=msg;c.appendChild(d);setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),300);},2400);}
 </script>
 </body>
