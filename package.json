@@ -1,7 +1,7 @@
 {
-  "name": "office-jukebox",
+  "name": "du-radio",
   "version": "1.0.0",
-  "description": "办公室点歌台 —— 一台电脑放 YouTube 音乐，同事贴链接或搜歌名即可排队播放",
+  "description": "DU電台 —— 辦公室點歌系統（YouTube 點歌、自動點歌、歌詞）",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,5 +12,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "ws": "^8.17.0"
+  },
+  "optionalDependencies": {
+    "opencc-js": "^1.0.5"
   }
 }

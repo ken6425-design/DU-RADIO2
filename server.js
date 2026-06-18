@@ -185,29 +185,72 @@ app.get('/api/meta', async (req, res) => {
   res.json({ videoId: id, ...(await fetchVideoMeta(id)) });
 });
 
-/* 移除標題雜訊（官方字樣、括號內容等） */
+/* 是否為「雜訊括號」內容（Official/MV/HD/字幕…或純英數），是則整組刪、否則保留內容 */
+function _isNoiseBracket(inner) {
+  if (/^[\s A-Za-z0-9.\-_/&'"!]+$/.test(inner)) return true;             // 純英數（如 Official Music Video）
+  return /(official|mv|m\/?v|hd|hq|4k|8k|lyric|audio|video|live|remix|version|ver|inst|karaoke|字幕|中字|高畫質|高清|官方|完整版|純享|現場|演唱會|歌詞版?|純音樂|伴奏)/i.test(inner);
+}
+/* 移除標題雜訊：雜訊括號整組刪、其他括號只去括號留內容；再刪常見雜訊詞 */
 function stripNoise(t) {
   t = String(t || '');
-  t = t.replace(/[\(\[（【][^\)\]）】]*[\)\]）】]/g, ' ');   // 去掉括號內容
-  const noise = /(official\s*(music\s*)?video|official\s*audio|official|m\/?v|lyric[s]?\s*video|lyric[s]?|audio|visualizer|performance\s*video|live|hd|hq|4k|8k|cover|remaster(ed)?|feat\.?|ft\.?|官方|高清|完整版|歌詞|動態歌詞|純享版?|現場版?|官方[歌音]?[詞訊]?)/gi;
+  t = t.replace(/[\(\[（【「『《]([^\)\]）】」』》]*)[\)\]）】」』》]/g, (m, inner) => _isNoiseBracket(inner) ? ' ' : (' ' + inner + ' '));
+  t = t.replace(/[｜|].*$/, ' ');
+  const noise = /(official\s*(music\s*)?video|official\s*audio|official|lyric[s]?\s*video|lyric[s]?|audio|visualizer|performance\s*video|live\s*version|m\/v|mv|hd|hq|4k|8k|cover|remaster(ed)?|remix|version|ver\.?|feat\.?|ft\.?|prod\.?|高音質|高畫質|高清|官方版|官方完整版|官方歌詞版|官方音檔|官方影音|完整版|中字|字幕|動態歌詞|純享版?|現場版?|演唱會|首播|新歌|主打|華納|索尼|環球|滾石|相信音樂|wav|flac|mp3)/gi;
   t = t.replace(noise, ' ');
-  t = t.replace(/\s+/g, ' ').trim();
+  t = t.replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
   return t;
 }
-/* 從標題拆出「歌手 / 歌名」：支援各種破折號 */
+/* 從標題拆出「歌手 / 歌名」 */
 function parseArtistTitle(raw) {
-  let t = String(raw || '');
-  t = t.replace(/[\(\[（【][^\)\]）】]*[\)\]）】]/g, ' ');
-  t = t.replace(/[｜|].*$/, ' ');
-  const parts = t.split(/\s[-–—－~～]\s/);
-  if (parts.length >= 2) {
-    return { artist: stripNoise(parts[0]), track: stripNoise(parts.slice(1).join(' ')) };
+  let t = String(raw || '').replace(/[｜|].*$/, ' ');
+  // 1) 歌名常放在括號裡：抓第一個「含中文字」的括號內容當歌名，括號前當歌手
+  const bm = t.match(/[\(\[（【「『《]([^\)\]）】」』》]*[\u4e00-\u9fff][^\)\]）】」』》]*)[\)\]）】」』》]/);
+  if (bm && !_isNoiseBracket(bm[1])) {
+    const track = stripNoise(bm[1]);
+    const artist = stripNoise(t.slice(0, bm.index));
+    if (track) return { artist, track };
   }
-  return { artist: '', track: stripNoise(t) };
+  // 2) 破折號拆「歌手 - 歌名」
+  const t2 = t.replace(/[\(\[（【「『《][^\)\]）】」』》]*[\)\]）】」』》]/g, ' ');
+  const parts = t2.split(/\s[-–—－~～]\s/);
+  if (parts.length >= 2) return { artist: stripNoise(parts[0]), track: stripNoise(parts.slice(1).join(' ')) };
+  return { artist: '', track: stripNoise(t2) };
+}
+/* 繁簡轉換（可選相依 opencc-js；裝不起來就維持原樣，不影響運作） */
+let toS = (x) => String(x || ''), toT = (x) => String(x || '');
+try {
+  const OpenCC = require('opencc-js');
+  const _t2s = OpenCC.Converter({ from: 'tw', to: 'cn' });
+  const _s2t = OpenCC.Converter({ from: 'cn', to: 'tw' });
+  toS = (x) => { try { return _t2s(String(x || '')); } catch (e) { return String(x || ''); } };
+  toT = (x) => { try { return _s2t(String(x || '')); } catch (e) { return String(x || ''); } };
+  console.log('  歌詞：繁簡轉換已啟用 (opencc-js)');
+} catch (e) {
+  console.log('  歌詞：未載入 opencc-js，繁簡不轉換（不影響其他功能）');
+}
+/* 正規化：轉簡體、去空白標點、小寫，用於比對歌名是否相符 */
+function norm(x) {
+  return toS(String(x || '')).toLowerCase().replace(/[\s·,.，。、!！?？~～\-_/\\'"`()（）\[\]【】「」『』:：]/g, '');
+}
+/* 從候選清單挑出歌名真的對得上的那首；對不上回 null（寧可說找不到，也不抓錯歌） */
+function pickBest(cands, track, artist) {
+  const nt = norm(track), na = norm(artist);
+  let best = null, score = 0;
+  for (const c of cands) {
+    const cn = norm(c.name), ca = norm(c.artist);
+    if (cn.length < 2) continue;
+    let sc = 0;
+    if (cn === nt) sc += 6;
+    else if (nt && (cn.includes(nt) || nt.includes(cn))) sc += 3;
+    else continue;                       // 歌名對不上 → 跳過
+    if (na && ca && (ca.includes(na) || na.includes(ca))) sc += 2;
+    if (sc > score) { score = sc; best = c; }
+  }
+  return best;
 }
 const LYRIC_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 function fetchT(url, opts, ms) {
-  ms = ms || 4500;
+  ms = ms || 4000;
   const ac = new AbortController();
   const id = setTimeout(() => ac.abort(), ms);
   return fetch(url, Object.assign({ signal: ac.signal }, opts || {})).finally(() => clearTimeout(id));
@@ -220,18 +263,29 @@ function jsonFromText(txt) {
   if (a >= 0 && b > a) { try { return JSON.parse(txt.slice(a, b + 1)); } catch (e) {} }
   return null;
 }
-function lrcResult(lrc, track, artist) {
+function lrcResult(lrc, track, artist, toTraditional) {
   if (!lrc) return null;
+  if (toTraditional) lrc = toT(lrc);
   if (hasTS(lrc)) return { mode: 'synced', synced: lrc, track: track, artist: artist };
   const plain = lrc.replace(/\[[^\]]*\]/g, '').trim();
   return plain ? { mode: 'plain', plain: plain, track: track, artist: artist } : null;
 }
+/* 產生查詢字串（華語源用簡體較準），含「歌手 歌名」「歌名」兩種 */
+function queriesFor(raw, simplified) {
+  const { artist, track } = parseArtistTitle(raw);
+  const conv = simplified ? toS : ((x) => x);
+  const list = [];
+  if (artist && track) list.push(conv(artist + ' ' + track));
+  if (track) list.push(conv(track));
+  list.push(conv(stripNoise(raw) || raw));
+  return { artist, track, queries: [...new Set(list.filter(Boolean))] };
+}
 
-/* 來源：LRCLIB（英/韓覆蓋好） */
+/* LRCLIB（英/韓） */
 async function lrclibSearch(params) {
   const usp = new URLSearchParams(params);
   try {
-    const r = await fetchT('https://lrclib.net/api/search?' + usp.toString(), { headers: { 'User-Agent': 'DU-Radio (office jukebox)' } });
+    const r = await fetchT('https://lrclib.net/api/search?' + usp.toString(), { headers: { 'User-Agent': 'DU-Radio' } });
     if (!r.ok) return [];
     const arr = await r.json();
     return Array.isArray(arr) ? arr : [];
@@ -251,68 +305,78 @@ async function lrclibLyrics(raw) {
   return null;
 }
 
-/* 來源：網易雲音樂（華語、含時間軸） */
+/* 網易雲（華語） */
 async function neteaseLyrics(raw) {
-  const { artist, track } = parseArtistTitle(raw);
-  const query = (artist && track) ? (artist + ' ' + track) : (stripNoise(raw) || raw);
+  const { artist, track, queries } = queriesFor(raw, true);
   const headers = { 'User-Agent': LYRIC_UA, Referer: 'https://music.163.com/', Cookie: 'os=pc; appver=8.9.70;' };
-  try {
-    const sres = await fetchT('https://music.163.com/api/search/get?s=' + encodeURIComponent(query) + '&type=1&limit=5', { headers: headers });
-    if (!sres.ok) return null;
-    const sj = jsonFromText(await sres.text());
-    const song = sj && sj.result && sj.result.songs && sj.result.songs[0];
-    if (!song) return null;
-    const lres = await fetchT('https://music.163.com/api/song/lyric?id=' + song.id + '&lv=1&kv=1&tv=-1', { headers: headers });
-    const lj = jsonFromText(await lres.text());
-    const lrc = lj && lj.lrc && lj.lrc.lyric;
-    const artistName = (song.artists && song.artists[0] && song.artists[0].name) || '';
-    return lrcResult(lrc, song.name || track, artistName);
-  } catch (e) { return null; }
+  for (const q of queries) {
+    try {
+      const sres = await fetchT('https://music.163.com/api/search/get?s=' + encodeURIComponent(q) + '&type=1&limit=8', { headers });
+      const sj = jsonFromText(await sres.text());
+      const songs = (sj && sj.result && sj.result.songs) || [];
+      const cands = songs.map((x) => ({ id: x.id, name: x.name, artist: (x.artists && x.artists[0] && x.artists[0].name) || '' }));
+      const hit = pickBest(cands, track || q, artist);
+      if (!hit) continue;
+      const lres = await fetchT('https://music.163.com/api/song/lyric?id=' + hit.id + '&lv=1&kv=1&tv=-1', { headers });
+      const lj = jsonFromText(await lres.text());
+      const lrc = lj && lj.lrc && lj.lrc.lyric;
+      const r = lrcResult(lrc, hit.name, hit.artist, true);
+      if (r) return r;
+    } catch (e) {}
+  }
+  return null;
 }
 
-/* 來源：QQ音樂（華語、含時間軸） */
+/* QQ音樂（華語） */
 async function qqLyrics(raw) {
-  const { artist, track } = parseArtistTitle(raw);
-  const query = (artist && track) ? (artist + ' ' + track) : (stripNoise(raw) || raw);
+  const { artist, track, queries } = queriesFor(raw, true);
   const headers = { 'User-Agent': LYRIC_UA, Referer: 'https://y.qq.com/portal/player.html' };
-  try {
-    const sres = await fetchT('https://c.y.qq.com/soso/fcgi-bin/client_search_cp?format=json&n=5&p=1&w=' + encodeURIComponent(query), { headers: headers });
-    const sj = jsonFromText(await sres.text());
-    const song = sj && sj.data && sj.data.song && sj.data.song.list && sj.data.song.list[0];
-    if (!song) return null;
-    const mid = song.songmid || song.mid;
-    if (!mid) return null;
-    const lres = await fetchT('https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?format=json&nobase64=1&songmid=' + mid, { headers: headers });
-    const lj = jsonFromText(await lres.text());
-    let lrc = (lj && lj.lyric) || '';
-    if (lrc && !hasTS(lrc)) { const dec = b64utf8(lrc); if (dec) lrc = dec; }
-    const artistName = (song.singer && song.singer[0] && song.singer[0].name) || '';
-    return lrcResult(lrc, song.songname || track, artistName);
-  } catch (e) { return null; }
+  for (const q of queries) {
+    try {
+      const sres = await fetchT('https://c.y.qq.com/soso/fcgi-bin/client_search_cp?format=json&n=8&p=1&w=' + encodeURIComponent(q), { headers });
+      const sj = jsonFromText(await sres.text());
+      const list = (sj && sj.data && sj.data.song && sj.data.song.list) || [];
+      const cands = list.map((x) => ({ mid: x.songmid || x.mid, name: x.songname || x.title, artist: (x.singer && x.singer[0] && x.singer[0].name) || '' }));
+      const hit = pickBest(cands, track || q, artist);
+      if (!hit || !hit.mid) continue;
+      const lres = await fetchT('https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?format=json&nobase64=1&songmid=' + hit.mid, { headers });
+      const lj = jsonFromText(await lres.text());
+      let lrc = (lj && lj.lyric) || '';
+      if (lrc && !hasTS(lrc)) { const dec = b64utf8(lrc); if (dec) lrc = dec; }
+      const r = lrcResult(lrc, hit.name, hit.artist, true);
+      if (r) return r;
+    } catch (e) {}
+  }
+  return null;
 }
 
-/* 來源：酷狗音樂（華語、含時間軸） */
+/* 酷狗（華語） */
 async function kugouLyrics(raw) {
-  const { artist, track } = parseArtistTitle(raw);
-  const query = (artist && track) ? (artist + ' ' + track) : (stripNoise(raw) || raw);
+  const { artist, track, queries } = queriesFor(raw, true);
   const headers = { 'User-Agent': LYRIC_UA };
-  try {
-    const sres = await fetchT('https://mobilecdn.kugou.com/api/v3/search/song?format=json&showtype=1&page=1&pagesize=5&keyword=' + encodeURIComponent(query), { headers: headers });
-    const sj = jsonFromText(await sres.text());
-    const info = sj && sj.data && sj.data.info && sj.data.info[0];
-    if (!info || !info.hash) return null;
-    const cres = await fetchT('https://krcs.kugou.com/search?ver=1&man=yes&client=mobi&hash=' + info.hash, { headers: headers });
-    const cj = jsonFromText(await cres.text());
-    const cand = cj && cj.candidates && cj.candidates[0];
-    if (!cand) return null;
-    const dres = await fetchT('https://lyrics.kugou.com/download?ver=1&client=pc&fmt=lrc&charset=utf8&id=' + cand.id + '&accesskey=' + cand.accesskey, { headers: headers });
-    const dj = jsonFromText(await dres.text());
-    const lrc = b64utf8((dj && dj.content) || '');
-    return lrcResult(lrc, info.songname || track, info.singername || artist);
-  } catch (e) { return null; }
+  for (const q of queries) {
+    try {
+      const sres = await fetchT('https://mobilecdn.kugou.com/api/v3/search/song?format=json&showtype=1&page=1&pagesize=8&keyword=' + encodeURIComponent(q), { headers });
+      const sj = jsonFromText(await sres.text());
+      const info = (sj && sj.data && sj.data.info) || [];
+      const cands = info.map((x) => ({ hash: x.hash, name: x.songname, artist: x.singername || '' }));
+      const hit = pickBest(cands, track || q, artist);
+      if (!hit || !hit.hash) continue;
+      const cres = await fetchT('https://krcs.kugou.com/search?ver=1&man=yes&client=mobi&hash=' + hit.hash, { headers });
+      const cj = jsonFromText(await cres.text());
+      const cand = cj && cj.candidates && cj.candidates[0];
+      if (!cand) continue;
+      const dres = await fetchT('https://lyrics.kugou.com/download?ver=1&client=pc&fmt=lrc&charset=utf8&id=' + cand.id + '&accesskey=' + cand.accesskey, { headers });
+      const dj = jsonFromText(await dres.text());
+      const lrc = b64utf8((dj && dj.content) || '');
+      const r = lrcResult(lrc, hit.name, hit.artist, true);
+      if (r) return r;
+    } catch (e) {}
+  }
+  return null;
 }
 
-/* 來源：lyrics.ovh（英文純文字，墊底） */
+/* lyrics.ovh（英文純文字墊底） */
 async function ovhLyrics(raw) {
   const { artist, track } = parseArtistTitle(raw);
   if (!artist || !track) return null;
@@ -320,12 +384,12 @@ async function ovhLyrics(raw) {
     const r = await fetchT('https://api.lyrics.ovh/v1/' + encodeURIComponent(artist) + '/' + encodeURIComponent(track));
     if (!r.ok) return null;
     const j = jsonFromText(await r.text());
-    if (j && j.lyrics && j.lyrics.trim()) return { mode: 'plain', plain: j.lyrics.trim(), track: track, artist: artist };
+    if (j && j.lyrics && j.lyrics.trim()) return { mode: 'plain', plain: j.lyrics.trim(), track, artist };
     return null;
   } catch (e) { return null; }
 }
 
-/* 歌詞查詢：多來源自動輪詢，找到就回。中文優先華語源，英/韓優先 LRCLIB */
+/* 歌詞查詢：多來源輪詢 + 比對挑對歌。中文優先華語源，英/韓優先 LRCLIB */
 app.get('/api/lyrics', async (req, res) => {
   const raw = (req.query.title || '').toString().trim();
   if (!raw) return res.json({ mode: 'none' });
