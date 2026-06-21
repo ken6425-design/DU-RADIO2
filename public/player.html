@@ -200,7 +200,7 @@ setInterval(()=>{if(ready&&player&&player.getCurrentTime&&currentVideo){try{
   document.getElementById('cur').textContent=fmt(pos);document.getElementById('dur').textContent=fmt(dur);
   const np=(st===1);if(np!==playing){playing=np;setPP();setSpin(np);}
   if(dur>0&&pos>=dur-1.0&&st!==1)send({type:'ended',videoId:currentVideo});
-}catch(e){}}},900);
+}catch(e){}}},600);
 function togglePlay(){if(!player||!target)return;playing?player.pauseVideo():player.playVideo();}
 function skip(){send({type:'skip'});}
 function vol(d){if(!player)return;try{player.setVolume(Math.max(0,Math.min(100,player.getVolume()+d)));}catch(e){}}

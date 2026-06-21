@@ -84,6 +84,13 @@
   .lyr-btn{display:inline-block;margin-top:6px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:10px 16px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
   .lyr-btn:hover{border-color:var(--green);color:var(--green)}
   .lyr-src{font-size:11px;color:var(--muted2);margin-top:8px}
+
+  .pv-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9;border:1px solid var(--line)}
+  .pv-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .pv-block{position:absolute;inset:0;z-index:2}
+  .pv-bar{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;gap:8px;padding:7px 10px;background:linear-gradient(transparent,rgba(0,0,0,.55));color:#fff;font-size:11px;pointer-events:none}
+  .pv-bar .pv-snd{pointer-events:auto;border:none;background:rgba(255,255,255,.22);color:#fff;border-radius:999px;padding:5px 11px;font-family:inherit;font-weight:700;font-size:11px;cursor:pointer}
+  .pv-bar .pv-snd:hover{background:var(--green);color:var(--greenink)}
 </style>
 </head>
 <body>
@@ -95,6 +102,9 @@
     <button class="gbtn" onclick="openShare()">分享</button>
   </header>
 
+  <div class="card pv-card" id="pvCard" style="display:none;padding:10px">
+    <div class="pv-wrap"><div id="pYt"></div><div class="pv-block"></div>
+      <div class="pv-bar"><span id="pvTag">🔇 同步畫面（靜音）</span><button class="pv-snd" id="pvSnd" onclick="pvToggleSound()">🔊 開聲音</button></div></div></div>
   <div class="card np"><div id="stageBody"></div></div>
   <div class="card"><div class="ph">歌詞 <span class="zh" id="lyricStatus">—</span></div>
     <div id="lyricsBox" class="lyrics-box"><div class="lyr-empty">播放歌曲時，這裡會顯示歌詞</div></div></div>
@@ -154,6 +164,52 @@ let lyricVideo=null, lyricToken=0;
 function handle(m){if(m.type==='state'){lastQueue=m.queue;render(m);}else if(m.type==='online')document.getElementById('onlineN').textContent=m.online;
   else if(m.type==='progress')updateProgress(m);else if(m.type==='toast')toast(m.message);
   else if(m.type==='error')toast('⚠️ '+m.message);else if(m.type==='chat')addChat(m);}
+let pPlayer=null, pReady=false, pVideo=null, pMuted=true;
+function onYouTubeIframeAPIReady(){
+  pPlayer=new YT.Player('pYt',{ width:'100%', height:'100%',
+    playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,rel:0,modestbranding:1,playsinline:1,iv_load_policy:3},
+    events:{ onReady:()=>{ pReady=true; try{pPlayer.mute();}catch(e){} if(pVideo){ try{pPlayer.loadVideoById(pVideo);pPlayer.mute();}catch(e){} } } } });
+}
+function pvSync(np){
+  const card=document.getElementById('pvCard');
+  if(np && np.videoId){
+    card.style.display='';
+    if(np.videoId!==pVideo){ pVideo=np.videoId;
+      if(pReady){ try{ pPlayer.loadVideoById(pVideo); if(pMuted) pPlayer.mute(); }catch(e){} } }
+  } else {
+    card.style.display='none'; pVideo=null;
+    if(pReady){ try{pPlayer.stopVideo();}catch(e){} }
+  }
+}
+function pvSetRate(r){ try{ if(pPlayer.getPlaybackRate()!==r) pPlayer.setPlaybackRate(r); }catch(e){} }
+function pvDrift(p){
+  if(!pReady||!pVideo) return;
+  try{
+    // 跟隨暫停／播放
+    if(p.paused){ if(pPlayer.getPlayerState()===1) pPlayer.pauseVideo(); pvSetRate(1); return; }
+    if(pPlayer.getPlayerState()===2) pPlayer.playVideo();
+    if(typeof p.position!=='number') return;
+    const target = p.position + 0.25;            // 補償廣播延遲
+    const local  = pPlayer.getCurrentTime()||0;
+    const diff   = target - local;               // 正=落後、負=超前
+    if(Math.abs(diff) > 1.2){ pPlayer.seekTo(target, true); pvSetRate(1); return; } // 差太多直接跳
+    if(pMuted){
+      // 靜音時用微調速度平順追上（不會變調），收斂到 ~0.1 秒內
+      if(diff > 0.12) pvSetRate(1.25);
+      else if(diff < -0.12) pvSetRate(0.75);
+      else pvSetRate(1);
+    } else {
+      pvSetRate(1); // 有開聲音就不變速，避免變調
+    }
+  }catch(e){}
+}
+function pvToggleSound(){
+  if(!pReady) return;
+  pMuted=!pMuted; pvSetRate(1);
+  try{ if(pMuted){pPlayer.mute();} else {pPlayer.unMute(); pPlayer.setVolume(100);} }catch(e){}
+  const b=document.getElementById('pvSnd'); if(b) b.textContent=pMuted?'🔊 開聲音':'🔇 靜音';
+  const tag=document.getElementById('pvTag'); if(tag) tag.textContent=pMuted?'🔇 同步畫面（靜音）':'🔊 同步畫面（已開聲）';
+}
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(t){t=Math.max(0,t|0);const m=(t/60)|0,s=t%60;return m+':'+String(s).padStart(2,'0');}
 function render(s){
@@ -167,10 +223,11 @@ function render(s){
       '<div class="line"><i id="npbar"></i></div><div class="tt"><span id="npcur">0:00</span><span id="npdur">'+fmt(n.duration)+'</span></div></div></div>';
     updateProgress(n);
     if(n.videoId!==lyricVideo){ lyricVideo=n.videoId; fetchLyrics(n.title, n.videoId); }
+    pvSync(n);
   } else { b.innerHTML='<div class="np-empty">📻 頻道待機中，點第一首歌！</div>';
     lyricVideo=null;
     document.getElementById('lyricStatus').textContent='—';
-    document.getElementById('lyricsBox').innerHTML='<div class="lyr-empty">播放歌曲時，這裡會顯示歌詞</div>'; }
+    document.getElementById('lyricsBox').innerHTML='<div class="lyr-empty">播放歌曲時，這裡會顯示歌詞</div>'; pvSync(null); }
   document.getElementById('queueN').textContent=s.queue.length;
   const ql=document.getElementById('queueList');
   ql.innerHTML=s.queue.length?s.queue.map((q,i)=>
@@ -190,7 +247,8 @@ function render(s){
 function updateProgress(p){
   const bar=document.getElementById('npbar');if(!bar)return;
   bar.style.width=(p.duration?Math.min(100,p.position/p.duration*100):0)+'%';
-  const c=document.getElementById('npcur'),d=document.getElementById('npdur');if(c)c.textContent=fmt(p.position);if(d&&p.duration)d.textContent=fmt(p.duration);}
+  const c=document.getElementById('npcur'),d=document.getElementById('npdur');if(c)c.textContent=fmt(p.position);if(d&&p.duration)d.textContent=fmt(p.duration);
+  pvDrift(p);}
 
 /* 拖曳排序：放開後送 move{id,toIndex} */
 let dragId=null;
@@ -271,5 +329,6 @@ function searchLyrics(){
 }
 function toast(msg){const c=document.getElementById('toasts');const d=document.createElement('div');d.className='toast';d.textContent=msg;c.appendChild(d);setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),300);},2400);}
 </script>
+<script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
