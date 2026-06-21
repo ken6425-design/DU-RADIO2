@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>點歌 · DU電台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+  .wrap{max-width:660px;margin:0 auto;padding:18px 16px 130px}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .online{margin-left:auto;display:flex;align-items:center;gap:7px;background:#13211a;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700}
+  .gbtn{background:#13211a;border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:8px 13px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
+  .gbtn:hover{border-color:var(--green);color:var(--green)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:15px;box-shadow:var(--shadow)}
+  .np{background:linear-gradient(160deg,rgba(29,185,84,.13),var(--card))}
+  .ntag{font-size:12px;letter-spacing:2px;display:flex;align-items:center;gap:7px;font-weight:800;color:var(--green)} .ntag .led{width:7px;height:7px;animation:blink 1.4s infinite}
+  .npbody{display:flex;gap:16px;align-items:center;margin-top:14px}
+  .cover{width:104px;height:104px;flex:none;border-radius:50%;object-fit:cover;border:6px solid var(--bg);box-shadow:0 0 0 2px var(--green),0 10px 26px rgba(0,0,0,.6)}
+  .cover.on{animation:spin 5s linear infinite}
+  .ntitle{font-size:18px;font-weight:900;line-height:1.25;margin-bottom:6px}
+  .nby{font-size:13.5px;color:var(--muted)} .nby b{color:var(--green)}
+  .line{height:5px;border-radius:99px;background:#23332a;margin-top:12px;overflow:hidden} .line i{display:block;height:100%;width:0;background:var(--green);transition:width .4s linear}
+  .tt{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted2);margin-top:6px}
+  .np-empty{text-align:center;color:var(--muted);padding:18px 0;font-weight:700}
+  .ph{font-weight:900;font-size:17px;margin:0 0 14px;display:flex;align-items:baseline;gap:9px}
+  .ph .zh{font-size:13px;color:var(--muted2);font-weight:700} .ph .n{margin-left:auto;color:var(--green)}
+  .tabs{display:inline-flex;background:var(--bg);border-radius:999px;padding:4px;margin-bottom:14px}
+  .tab{border:none;background:transparent;color:var(--muted);font-family:inherit;font-weight:700;font-size:14px;padding:9px 18px;border-radius:999px;cursor:pointer}
+  .tab.on{background:var(--green);color:var(--greenink)}
+  .field{margin-bottom:12px} .field label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:6px}
+  input[type=text]{width:100%;padding:13px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;font-family:inherit}
+  input[type=text]:focus{outline:none;border-color:var(--green)}
+  .btn.full{width:100%;padding:14px;font-size:15px;letter-spacing:1px}
+  .results{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .res{display:flex;gap:11px;align-items:center;padding:8px;border-radius:12px;background:var(--bg);cursor:pointer;border:1.5px solid transparent}
+  .res:hover{border-color:var(--green)} .res img{width:80px;aspect-ratio:16/10;border-radius:8px;object-fit:cover;flex:none}
+  .res .t{font-size:13px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .res .m{font-size:11px;color:var(--muted2);margin-top:3px}
+  .res .go{margin-left:auto;flex:none;width:28px;height:28px;border-radius:50%;background:var(--green);color:var(--greenink);display:grid;place-items:center;font-weight:900}
+  .hint{font-size:12.5px;color:var(--muted2);margin-top:10px;line-height:1.6}
+  .qi{display:flex;gap:10px;align-items:center;padding:9px;border-radius:12px;background:var(--bg);border:1px solid var(--line);margin-bottom:8px}
+  .qi.drag{opacity:.4} .qi.over{border-color:var(--green)}
+  .qhandle{cursor:grab;font-size:16px;color:var(--muted2);flex:none;touch-action:none}
+  .qpos{width:20px;text-align:center;font-weight:700;color:var(--green);flex:none;font-size:13px}
+  .qthumb{width:58px;aspect-ratio:16/10;border-radius:7px;object-fit:cover;flex:none}
+  .qmeta{min-width:0;flex:1} .qt{font-size:13px;font-weight:700;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .qby{font-size:11px;color:var(--muted);margin-top:2px} .qby b{color:var(--green)}
+  .qops{display:flex;gap:4px;flex:none}
+  .qjump{border:none;background:var(--green);color:var(--greenink);font-family:inherit;font-weight:800;font-size:12px;padding:7px 11px;border-radius:999px;cursor:pointer}
+  .qdel{border:none;background:none;color:var(--muted2);font-size:15px;cursor:pointer;padding:5px} .qdel:hover{color:var(--green)}
+  .empty{text-align:center;color:var(--muted2);padding:24px 0;font-weight:600} .empty .big{font-size:34px;margin-bottom:6px}
+  .seg{display:inline-flex;gap:6px;margin-bottom:12px}
+  .seg button{border:1px solid var(--line);background:var(--bg);color:var(--muted);font-family:inherit;font-weight:700;font-size:13px;padding:7px 14px;border-radius:999px;cursor:pointer}
+  .seg button.on{background:var(--green);color:var(--greenink);border-color:var(--green)}
+  .mini{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)} .mini:last-child{border:none}
+  .mini img{width:42px;aspect-ratio:1;border-radius:7px;object-fit:cover;flex:none}
+  .mt{font-size:13px;font-weight:600;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden} .mby{font-size:11px;color:var(--muted2)}
+  .lb{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)} .lb:last-child{border:none}
+  .lb .rk{width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;background:#23332a;color:var(--muted)}
+  .lb:nth-child(1) .rk{background:var(--green);color:var(--greenink)} .lb .nm{font-weight:700;font-size:14px} .lb .ct{margin-left:auto;color:var(--green);font-weight:700}
+  .shout{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);width:calc(100% - 32px);max-width:628px;display:flex;gap:8px;background:var(--card);border:1px solid var(--line);padding:8px;border-radius:15px;box-shadow:var(--shadow)}
+  .shout input{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:12px 13px;font-family:inherit;font-size:14px} .shout input:focus{outline:none;border-color:var(--green)}
+  .shout button{border:none;background:var(--green);color:var(--greenink);border-radius:10px;padding:0 16px;font-family:inherit;font-weight:800;cursor:pointer}
+  #toasts{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{background:var(--card);border:1.5px solid var(--green);color:var(--ink);padding:11px 18px;border-radius:999px;font-weight:700;font-size:13.5px;box-shadow:var(--shadow);animation:tin .3s} @keyframes tin{from{opacity:0;transform:translateY(10px)}}
+  .modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)} .modal.show{display:flex}
+  .modal .box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;max-width:380px;width:100%;box-shadow:var(--shadow);position:relative}
+  .modal h3{margin:0 0 6px;font-weight:900;font-size:20px} .modal p{color:var(--muted);font-size:13px;margin:0 0 16px}
+  .close{position:absolute;top:18px;right:22px;cursor:pointer;font-size:24px;color:var(--muted)}
+  #qr{display:flex;justify-content:center;margin:6px 0 14px} #qr img,#qr canvas{border-radius:12px}
+  .urlbox{display:flex;gap:8px} .urlbox input{flex:1;font-size:13px}
+  #chatlog{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px} .cmsg{font-size:14px} .cmsg b{color:var(--green)}
+
+  .lyrics-box{max-height:300px;overflow-y:auto;line-height:1.9;font-size:15px;position:relative;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+  .lyrics-box::-webkit-scrollbar{width:5px}.lyrics-box::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+  .lyr-line{padding:3px 2px;color:var(--muted);transition:color .2s,transform .2s}
+  .lyr-line.active{color:var(--green);font-weight:800;transform:translateX(4px)}
+  .lyr-plain{white-space:pre-wrap;color:var(--ink);font-size:14.5px;line-height:1.8}
+  .lyr-empty{color:var(--muted2);text-align:center;padding:14px 0;font-size:14px}
+  .lyr-btn{display:inline-block;margin-top:6px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:10px 16px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
+  .lyr-btn:hover{border-color:var(--green);color:var(--green)}
+  .lyr-src{font-size:11px;color:var(--muted2);margin-top:8px}
+
+  .pv-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9;border:1px solid var(--line)}
+  .pv-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .pv-block{position:absolute;inset:0;z-index:2}
+  .pv-bar{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;gap:8px;padding:7px 10px;background:linear-gradient(transparent,rgba(0,0,0,.55));color:#fff;font-size:11px;pointer-events:none}
+  .pv-bar .pv-snd{pointer-events:auto;border:none;background:rgba(255,255,255,.22);color:#fff;border-radius:999px;padding:5px 11px;font-family:inherit;font-weight:700;font-size:11px;cursor:pointer}
+  .pv-bar .pv-snd:hover{background:var(--green);color:var(--greenink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="mark"></div><div><div class="bcn">DU電台</div><div class="ben">DU RADIO</div></div></div>
+    <div class="online"><span class="led"></span><span id="onlineN">0</span> 人收聽中</div>
+    <button class="gbtn" onclick="openChat()">留言牆</button>
+    <button class="gbtn" onclick="openShare()">分享</button>
+  </header>
+
+  <div class="card pv-card" id="pvCard" style="display:none;padding:10px">
+    <div class="pv-wrap"><div id="pYt"></div><div class="pv-block"></div>
+      <div class="pv-bar"><span id="pvTag">🔇 同步畫面（靜音）</span><button class="pv-snd" id="pvSnd" onclick="pvToggleSound()">🔊 開聲音</button></div></div></div>
+  <div class="card np"><div id="stageBody"></div></div>
+  <div class="card"><div class="ph">歌詞 <span class="zh" id="lyricStatus">—</span></div>
+    <div id="lyricsBox" class="lyrics-box"><div class="lyr-empty">播放歌曲時，這裡會顯示歌詞</div></div></div>
+
+  <div class="card">
+    <div class="ph">點一首歌</div>
+    <div class="tabs"><button class="tab on" id="tabLink" onclick="switchTab('link')">貼連結</button>
+      <button class="tab" id="tabSearch" onclick="switchTab('search')">搜歌名</button></div>
+    <div id="paneLink">
+      <div class="field"><label>YOUTUBE 網址</label><input type="text" id="urlIn" placeholder="貼上 YouTube 網址…" onkeydown="if(event.key==='Enter')addByUrl()" /></div>
+      <div class="field"><label>你的名字</label><input type="text" id="nameIn1" maxlength="24" placeholder="署名（會上點歌排行）" /></div>
+      <button class="btn full" onclick="addByUrl()">送進候播清單 →</button>
+    </div>
+    <div id="paneSearch" style="display:none">
+      <div class="field"><label>搜歌名 / 歌手</label><input type="text" id="qIn" placeholder="例如：告五人 愛人錯過" onkeydown="if(event.key==='Enter')doSearch()" /></div>
+      <div class="field"><label>你的名字</label><input type="text" id="nameIn2" maxlength="24" placeholder="署名" /></div>
+      <button class="btn full" onclick="doSearch()">搜尋 YouTube</button>
+      <div class="results" id="results"></div>
+      <div class="hint">搜尋由伺服器代勞，免金鑰。若臨時搜不到，用「貼連結」永遠可用。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ph">候播清單 <span class="zh">可拖曳排序・插播</span> <span class="n" id="queueN">0</span></div>
+    <div id="queueList"></div>
+  </div>
+
+  <div class="card">
+    <div class="seg"><button class="on" id="segHist" onclick="switchSeg('hist')">已放送</button>
+      <button id="segBoard" onclick="switchSeg('board')">點歌排行</button></div>
+    <div id="histList"></div><div id="boardList" style="display:none"></div>
+  </div>
+</div>
+
+<div class="shout"><input type="text" id="dm" maxlength="60" placeholder="丟一句話飄過大螢幕…" onkeydown="if(event.key==='Enter')sendDanmaku()" />
+  <button onclick="sendDanmaku()">飄 →</button></div>
+<div id="toasts"></div>
+
+<div class="modal" id="shareModal"><div class="box"><span class="close" onclick="closeModal('shareModal')">×</span>
+  <h3>分享頻道</h3><p>把這個網址或 QR 給用戶，點開就能一起點歌</p>
+  <div id="qr"></div><div class="urlbox"><input type="text" id="shareUrl" readonly />
+    <button class="btn" style="padding:13px 16px" onclick="copyUrl()">複製</button></div></div></div>
+<div class="modal" id="chatModal"><div class="box"><span class="close" onclick="closeModal('chatModal')">×</span>
+  <h3>留言牆</h3><div id="chatlog"></div>
+  <div class="urlbox"><input type="text" id="chatName" maxlength="24" placeholder="名字" style="flex:0 0 84px" />
+    <input type="text" id="chatText" maxlength="200" placeholder="說點什麼…" onkeydown="if(event.key==='Enter')sendChat()" />
+    <button class="btn" style="padding:13px 16px" onclick="sendChat()">送</button></div></div></div>
+
+<script>
+let ws,reconnectT;
+function connect(){ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host);
+  ws.onopen=()=>ws.send(JSON.stringify({type:'hello',role:'remote'}));ws.onmessage=(e)=>handle(JSON.parse(e.data));
+  ws.onclose=()=>{clearTimeout(reconnectT);reconnectT=setTimeout(connect,1500);};}
+function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));} connect();
+let lastQueue=[];
+let lyricVideo=null, lyricToken=0;
+function handle(m){if(m.type==='state'){lastQueue=m.queue;render(m);}else if(m.type==='online')document.getElementById('onlineN').textContent=m.online;
+  else if(m.type==='progress')updateProgress(m);else if(m.type==='toast')toast(m.message);
+  else if(m.type==='error')toast('⚠️ '+m.message);else if(m.type==='chat')addChat(m);}
+let pPlayer=null, pReady=false, pVideo=null, pMuted=true;
+function onYouTubeIframeAPIReady(){
+  pPlayer=new YT.Player('pYt',{ width:'100%', height:'100%',
+    playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,rel:0,modestbranding:1,playsinline:1,iv_load_policy:3},
+    events:{ onReady:()=>{ pReady=true; try{pPlayer.mute();}catch(e){} if(pVideo){ try{pPlayer.loadVideoById(pVideo);pPlayer.mute();}catch(e){} } } } });
+}
+function pvSync(np){
+  const card=document.getElementById('pvCard');
+  if(np && np.videoId){
+    card.style.display='';
+    if(np.videoId!==pVideo){ pVideo=np.videoId;
+      if(pReady){ try{ pPlayer.loadVideoById(pVideo); if(pMuted) pPlayer.mute(); }catch(e){} } }
+  } else {
+    card.style.display='none'; pVideo=null;
+    if(pReady){ try{pPlayer.stopVideo();}catch(e){} }
+  }
+}
+function pvSetRate(r){ try{ if(pPlayer.getPlaybackRate()!==r) pPlayer.setPlaybackRate(r); }catch(e){} }
+function pvDrift(p){
+  if(!pReady||!pVideo) return;
+  try{
+    // 跟隨暫停／播放
+    if(p.paused){ if(pPlayer.getPlayerState()===1) pPlayer.pauseVideo(); pvSetRate(1); return; }
+    if(pPlayer.getPlayerState()===2) pPlayer.playVideo();
+    if(typeof p.position!=='number') return;
+    const target = p.position + 0.25;            // 補償廣播延遲
+    const local  = pPlayer.getCurrentTime()||0;
+    const diff   = target - local;               // 正=落後、負=超前
+    if(Math.abs(diff) > 1.2){ pPlayer.seekTo(target, true); pvSetRate(1); return; } // 差太多直接跳
+    if(pMuted){
+      // 靜音時用微調速度平順追上（不會變調），收斂到 ~0.1 秒內
+      if(diff > 0.12) pvSetRate(1.25);
+      else if(diff < -0.12) pvSetRate(0.75);
+      else pvSetRate(1);
+    } else {
+      pvSetRate(1); // 有開聲音就不變速，避免變調
+    }
+  }catch(e){}
+}
+function pvToggleSound(){
+  if(!pReady) return;
+  pMuted=!pMuted; pvSetRate(1);
+  try{ if(pMuted){pPlayer.mute();} else {pPlayer.unMute(); pPlayer.setVolume(100);} }catch(e){}
+  const b=document.getElementById('pvSnd'); if(b) b.textContent=pMuted?'🔊 開聲音':'🔇 靜音';
+  const tag=document.getElementById('pvTag'); if(tag) tag.textContent=pMuted?'🔇 同步畫面（靜音）':'🔊 同步畫面（已開聲）';
+}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmt(t){t=Math.max(0,t|0);const m=(t/60)|0,s=t%60;return m+':'+String(s).padStart(2,'0');}
+function render(s){
+  document.getElementById('onlineN').textContent=s.online;
+  const b=document.getElementById('stageBody');
+  if(s.nowPlaying){const n=s.nowPlaying;
+    b.innerHTML='<div class="ntag"><span class="led"></span>ON AIR · 正在放送</div>'+
+      '<div class="npbody"><img class="cover on" src="'+n.thumbnail+'"/>'+
+      '<div style="min-width:0;flex:1"><div class="ntitle">'+esc(n.title)+'</div>'+
+      '<div class="nby">由 <b>'+esc(n.requester)+'</b> 點播</div>'+
+      '<div class="line"><i id="npbar"></i></div><div class="tt"><span id="npcur">0:00</span><span id="npdur">'+fmt(n.duration)+'</span></div></div></div>';
+    updateProgress(n);
+    if(n.videoId!==lyricVideo){ lyricVideo=n.videoId; fetchLyrics(n.title, n.videoId); }
+    pvSync(n);
+  } else { b.innerHTML='<div class="np-empty">📻 頻道待機中，點第一首歌！</div>';
+    lyricVideo=null;
+    document.getElementById('lyricStatus').textContent='—';
+    document.getElementById('lyricsBox').innerHTML='<div class="lyr-empty">播放歌曲時，這裡會顯示歌詞</div>'; pvSync(null); }
+  document.getElementById('queueN').textContent=s.queue.length;
+  const ql=document.getElementById('queueList');
+  ql.innerHTML=s.queue.length?s.queue.map((q,i)=>
+    '<div class="qi" draggable="true" data-id="'+q.id+'">'+
+    '<span class="qhandle">⠿</span><span class="qpos">'+(i+1)+'</span>'+
+    '<img class="qthumb" src="'+q.thumbnail+'"/>'+
+    '<div class="qmeta"><div class="qt">'+esc(q.title)+'</div><div class="qby">由 <b>'+esc(q.requester)+'</b> 點播</div></div>'+
+    '<div class="qops"><button class="qjump" onclick="jump('+q.id+')">插播</button>'+
+    '<button class="qdel" onclick="del('+q.id+')">✕</button></div></div>').join('')
+    :'<div class="empty"><div class="big">📭</div>候播清單空空，快點歌！</div>';
+  bindDrag();
+  const hl=document.getElementById('histList');
+  hl.innerHTML=s.history.length?s.history.map(h=>'<div class="mini"><img src="'+h.thumbnail+'"/><div style="min-width:0"><div class="mt">'+esc(h.title)+'</div><div class="mby">'+esc(h.requester)+'</div></div></div>').join(''):'<div class="empty">還沒有放送紀錄</div>';
+  const bl=document.getElementById('boardList');
+  bl.innerHTML=s.leaderboard.length?s.leaderboard.map((b,i)=>'<div class="lb"><span class="rk">'+(i+1)+'</span><span class="nm">'+esc(b.name)+'</span><span class="ct">'+b.count+' 首</span></div>').join(''):'<div class="empty">還沒有人上榜，先點一首吧！</div>';
+}
+function updateProgress(p){
+  const bar=document.getElementById('npbar');if(!bar)return;
+  bar.style.width=(p.duration?Math.min(100,p.position/p.duration*100):0)+'%';
+  const c=document.getElementById('npcur'),d=document.getElementById('npdur');if(c)c.textContent=fmt(p.position);if(d&&p.duration)d.textContent=fmt(p.duration);
+  pvDrift(p);}
+
+/* 拖曳排序：放開後送 move{id,toIndex} */
+let dragId=null;
+function bindDrag(){
+  document.querySelectorAll('.qi').forEach(el=>{
+    el.addEventListener('dragstart',()=>{dragId=+el.dataset.id;el.classList.add('drag');});
+    el.addEventListener('dragend',()=>{el.classList.remove('drag');document.querySelectorAll('.qi').forEach(x=>x.classList.remove('over'));});
+    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+    el.addEventListener('dragleave',()=>el.classList.remove('over'));
+    el.addEventListener('drop',e=>{e.preventDefault();const overId=+el.dataset.id;
+      const to=lastQueue.findIndex(q=>q.id===overId);
+      if(dragId!=null&&to>-1) send({type:'move',id:dragId,toIndex:to});});
+  });
+}
+function jump(id){send({type:'jump',id});}
+function del(id){send({type:'remove',id});}
+
+function switchTab(t){document.getElementById('tabLink').classList.toggle('on',t==='link');document.getElementById('tabSearch').classList.toggle('on',t==='search');
+  document.getElementById('paneLink').style.display=t==='link'?'':'none';document.getElementById('paneSearch').style.display=t==='search'?'':'none';}
+function switchSeg(x){document.getElementById('segHist').classList.toggle('on',x==='hist');document.getElementById('segBoard').classList.toggle('on',x==='board');
+  document.getElementById('histList').style.display=x==='hist'?'':'none';document.getElementById('boardList').style.display=x==='board'?'':'none';}
+function rememberName(v){if(v)localStorage.setItem('du_name',v);}
+function loadName(){const n=localStorage.getItem('du_name')||'';['nameIn1','nameIn2','chatName'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=n;});} loadName();
+function addByUrl(){const url=document.getElementById('urlIn').value.trim();const name=document.getElementById('nameIn1').value.trim();
+  if(!url){toast('⚠️ 請先貼上 YouTube 網址');return;}rememberName(name);send({type:'add',url,requester:name});document.getElementById('urlIn').value='';}
+async function doSearch(){const q=document.getElementById('qIn').value.trim();if(!q){toast('⚠️ 請輸入歌名');return;}
+  const box=document.getElementById('results');box.innerHTML='<div class="empty">搜尋中…</div>';
+  try{const r=await fetch('/api/search?q='+encodeURIComponent(q));const j=await r.json();
+    if(!j.results||!j.results.length){box.innerHTML='<div class="empty">沒有結果，換個關鍵字</div>';return;}
+    box.innerHTML=j.results.map(v=>'<div class="res" onclick=\'pick('+JSON.stringify(v).replace(/'/g,"&#39;")+')\'><img src="'+v.thumbnail+'"/>'+
+      '<div style="min-width:0;flex:1"><div class="t">'+esc(v.title)+'</div><div class="m">'+esc(v.author)+' '+(v.duration?'· '+v.duration:'')+'</div></div><div class="go">+</div></div>').join('');
+  }catch(e){box.innerHTML='<div class="empty">搜尋失敗，可改用「貼連結」</div>';}}
+function pick(v){const name=document.getElementById('nameIn2').value.trim();rememberName(name);
+  send({type:'add',videoId:v.videoId,title:v.title,thumbnail:v.thumbnail,requester:name});document.getElementById('results').innerHTML='';document.getElementById('qIn').value='';}
+function sendDanmaku(){const t=document.getElementById('dm').value.trim();if(!t)return;send({type:'chat',name:localStorage.getItem('du_name')||'匿名',text:t});document.getElementById('dm').value='';toast('📡 已飄上大螢幕');}
+function sendChat(){const name=document.getElementById('chatName').value.trim()||'匿名';const t=document.getElementById('chatText').value.trim();if(!t)return;rememberName(name);send({type:'chat',name,text:t});document.getElementById('chatText').value='';}
+function addChat(m){const log=document.getElementById('chatlog');const d=document.createElement('div');d.className='cmsg';d.innerHTML='<b>'+esc(m.name)+'</b>：'+esc(m.text);log.appendChild(d);log.scrollTop=log.scrollHeight;while(log.children.length>80)log.removeChild(log.firstChild);}
+function openChat(){document.getElementById('chatModal').classList.add('show');loadName();}
+function openShare(){document.getElementById('shareModal').classList.add('show');const url=location.origin;document.getElementById('shareUrl').value=url;
+  const qd=document.getElementById('qr');qd.innerHTML='';try{new QRCode(qd,{text:url,width:180,height:180,colorDark:'#0a0f0c',colorLight:'#ffffff'});}catch(e){}}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function copyUrl(){navigator.clipboard?.writeText(document.getElementById('shareUrl').value);toast('✅ 已複製網址');}
+
+function stripLRC(str){
+  return String(str||'').split(/\r?\n/)
+    .map(l=>l.replace(/\[[^\]]*\]/g,'').trim())   // 去掉所有 [..] 時間/標籤
+    .filter(l=>l.length>0)
+    .join('\n');
+}
+async function fetchLyrics(title, vid){
+  const box=document.getElementById('lyricsBox'), st=document.getElementById('lyricStatus');
+  st.textContent='搜尋中…'; box.innerHTML='<div class="lyr-empty">歌詞搜尋中…</div>';
+  const token=++lyricToken;
+  try{
+    const r=await fetch('/api/lyrics?title='+encodeURIComponent(title||''));
+    const j=await r.json();
+    if(token!==lyricToken || vid!==lyricVideo) return; // 期間換歌了
+    let text='';
+    if(j.mode==='synced') text=stripLRC(j.synced);
+    else if(j.mode==='plain') text=String(j.plain||'').trim();
+    if(text){
+      st.textContent='歌詞';
+      box.scrollTop=0;
+      box.innerHTML='<div class="lyr-plain">'+esc(text)+'</div>';
+    } else {
+      st.textContent='找不到';
+      box.innerHTML='<div class="lyr-empty">這首找不到歌詞<br><button class="lyr-btn" onclick="searchLyrics()">🔍 上網搜尋歌詞</button></div>';
+    }
+  }catch(e){
+    if(token!==lyricToken) return;
+    document.getElementById('lyricStatus').textContent='找不到';
+    box.innerHTML='<div class="lyr-empty">歌詞載入失敗<br><button class="lyr-btn" onclick="searchLyrics()">🔍 上網搜尋歌詞</button></div>';
+  }
+}
+function searchLyrics(){
+  const t=document.querySelector('#stageBody .ntitle');
+  const q=t?t.textContent:''; window.open('https://www.google.com/search?q='+encodeURIComponent(q+' 歌詞 lyrics'),'_blank');
+}
+function toast(msg){const c=document.getElementById('toasts');const d=document.createElement('div');d.className='toast';d.textContent=msg;c.appendChild(d);setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),300);},2400);}
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>

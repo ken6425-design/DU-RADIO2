@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>放送端 · DU電台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@600;700;800;900&family=Noto+Sans+TC:wght@400;700;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+<style>
+  html,body{height:100%;overflow:hidden}
+  .start{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center}
+  .start .box{text-align:center;max-width:420px;padding:30px}
+  .start .lamp{display:inline-flex;align-items:center;gap:12px;border:2px solid var(--green);border-radius:14px;padding:14px 28px;margin-bottom:24px;box-shadow:0 0 40px rgba(29,185,84,.45)}
+  .start .lamp .led{width:14px;height:14px;animation:blink 1.4s infinite}
+  .start .lamp span{font-weight:900;font-size:24px;letter-spacing:5px;color:var(--green)}
+  .start h1{font-size:25px;font-weight:900;margin:0 0 8px} .start p{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 26px}
+  .start .btn{width:100%;padding:16px;font-size:17px;letter-spacing:1px}
+  .stage{display:none;height:100vh;flex-direction:column;padding:24px 34px}
+  .top{display:flex;align-items:center;gap:18px;margin-bottom:18px}
+  .lamp{display:inline-flex;align-items:center;gap:10px;border:2px solid var(--green);border-radius:12px;padding:8px 16px;box-shadow:0 0 26px rgba(29,185,84,.4)}
+  .lamp .led{width:11px;height:11px;animation:blink 1.4s infinite} .lamp span{font-weight:900;letter-spacing:3px;color:var(--green);font-size:17px}
+  .bcn2{font-weight:900;font-size:24px} .ben2{font-weight:700;color:var(--green);font-size:12px;letter-spacing:3px}
+  .right-top{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .online{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-weight:700;font-family:'DM Mono'}
+  .djbtn{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:9px 15px;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer}
+  .djbtn.on{background:var(--green);color:var(--greenink);border-color:var(--green)}
+  .main{flex:1;display:grid;grid-template-columns:1.5fr .9fr;gap:26px;min-height:0}
+  .left{display:flex;flex-direction:column;gap:18px;min-height:0}
+  .video{position:relative;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:16/9;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .video .idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted)}
+  .video .idle .disc{width:130px;height:130px;border-radius:50%;background:#0a0f0c;border:6px solid #16241b;position:relative}
+  .video .idle .disc::after{content:"";position:absolute;inset:0;margin:auto;width:14px;height:14px;border-radius:50%;background:var(--green)}
+  .info{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 24px;display:flex;gap:22px;align-items:center}
+  .cover{width:96px;height:96px;flex:none;border-radius:50%;object-fit:cover;border:6px solid var(--bg);box-shadow:0 0 0 2px var(--green),0 8px 20px rgba(0,0,0,.5)}
+  .cover.on{animation:spin 5s linear infinite} .cover.empty{background:#16241b;box-shadow:inset 0 0 0 2px var(--green)}
+  .ntag{font-weight:900;color:var(--green);font-size:13px;letter-spacing:2px}
+  .ntitle{font-size:26px;font-weight:900;line-height:1.25;margin:6px 0} .nby{color:var(--muted);font-size:15px} .nby b{color:var(--green)}
+  .line{height:6px;border-radius:99px;background:#23332a;margin-top:14px;overflow:hidden} .line i{display:block;height:100%;width:0;background:var(--green);transition:width .3s linear}
+  .tt{display:flex;justify-content:space-between;font-family:'DM Mono';font-size:12px;color:var(--muted2);margin-top:6px}
+  .ctrls{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .cbtn{background:var(--bg);border:1.5px solid var(--line);color:var(--ink);cursor:pointer;border-radius:11px;padding:10px 16px;font-family:inherit;font-weight:800;font-size:14px}
+  .cbtn:hover{border-color:var(--green);color:var(--green)} .cbtn.skip{background:var(--green);border:none;color:var(--greenink)}
+  .rightcol{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;min-height:0}
+  .rightcol h2{margin:0 0 16px;font-weight:900;font-size:18px;display:flex;align-items:baseline;gap:10px}
+  .rightcol h2 .zh{font-size:13px;color:var(--muted2);font-weight:700} .rightcol h2 .n{margin-left:auto;font-family:'DM Mono';color:var(--green)}
+  .qlist{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:9px} .qlist::-webkit-scrollbar{width:6px} .qlist::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+  .qi{display:flex;gap:11px;align-items:center;padding:10px;border-radius:12px;background:var(--bg)}
+  .qi .pos{width:24px;height:24px;flex:none;border-radius:7px;background:var(--green);color:var(--greenink);display:grid;place-items:center;font-family:'DM Mono';font-weight:700;font-size:12px}
+  .qi img{width:64px;aspect-ratio:16/10;border-radius:8px;object-fit:cover;flex:none}
+  .qi .t{font-size:13.5px;font-weight:700;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .qi .by{font-size:11.5px;color:var(--muted);margin-top:2px} .qi .by b{color:var(--green)}
+  .qempty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted2);gap:10px} .qempty .big{font-size:46px}
+  .share{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted2);text-align:center;line-height:1.7} .share b{color:var(--green);font-family:'DM Mono'}
+  #danmaku{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+  .dm{position:absolute;white-space:nowrap;font-weight:900;font-size:26px;padding:8px 16px;border-radius:10px;background:var(--green);color:var(--greenink);box-shadow:0 6px 18px rgba(0,0,0,.4);animation:fly linear forwards}
+  .dm b{color:var(--bg);margin-right:8px}
+  @keyframes fly{from{transform:translateX(100vw)}to{transform:translateX(-130%)}}
+</style>
+</head>
+<body>
+<div class="start" id="start"><div class="box">
+  <div class="lamp"><span class="led"></span><span>ON AIR</span></div>
+  <h1>DU電台 · 放送端</h1>
+  <p>這台接上喇叭。按下開台後會自動照候播清單放歌，<br>沒人點歌時自動播熱門歌單墊檔。</p>
+  <button class="btn" onclick="startUp()">▶ 開台 · 開始放送</button>
+</div></div>
+
+<div class="stage" id="stage">
+  <div class="top">
+    <div class="brand"><div class="lamp"><span class="led"></span><span>ON AIR</span></div>
+      <div><div class="bcn2">DU電台</div><div class="ben2">DU RADIO · 放送端</div></div></div>
+    <div class="right-top">
+      <div class="online"><span class="led"></span><span id="onlineN">0</span> 人收聽中</div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="left">
+      <div class="video"><div id="ytplayer"></div>
+        <div class="idle" id="idle"><div class="disc"></div><div>頻道待機中，等候點歌…</div></div></div>
+      <div class="info">
+        <img class="cover empty" id="cover" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" />
+        <div style="min-width:0;flex:1">
+          <div class="ntag">● NOW BROADCASTING</div>
+          <div class="ntitle" id="ntitle">尚未開台</div>
+          <div class="nby" id="nby"></div>
+          <div class="line"><i id="bar"></i></div>
+          <div class="tt"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+          <div class="ctrls">
+            <button class="cbtn" id="pp" onclick="togglePlay()">⏸ 暫停</button>
+            <button class="cbtn skip" onclick="skip()">⏭ 跳過</button>
+            <button class="cbtn" onclick="vol(-10)">🔉</button>
+            <button class="cbtn" onclick="vol(10)">🔊</button>
+            <button class="cbtn" onclick="fullscreenVideo()">⛶ 全螢幕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rightcol">
+      <h2>候播清單 <span class="zh">用戶可拖曳・插播</span> <span class="n" id="queueN">0</span></h2>
+      <div class="qlist" id="qlist"></div>
+      <div class="share">用戶用手機 / 電腦打開<br><b id="shareUrl">…</b><br>選「我要點歌」即可</div>
+    </div>
+  </div>
+</div>
+<div id="danmaku"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+let player,ready=false,started=false,currentVideo=null,playing=false,wantStart=false,target=null;
+let everPlayed=false,watchdog=null,loadAttempt=0;
+let helloSent=false,pendingStart=false;
+function startUp(){ pendingStart=true; connect(); } // 先連線，收到狀態後再決定是否接手
+function finalizeStart(){
+  helloSent=true; send({type:'hello',role:'player'});
+  document.getElementById('start').style.display='none';
+  document.getElementById('stage').style.display='flex';
+  document.getElementById('shareUrl').textContent=location.origin;
+  started=true; wantStart=true; if(ready)beginPlay();
+}
+function abortStart(){ pendingStart=false; try{ws&&ws.close();}catch(e){} location.reload(); }
+function onYouTubeIframeAPIReady(){
+  var pv={autoplay:0,controls:1,rel:0,modestbranding:1,playsinline:1};
+  if(location.protocol!=='file:')pv.origin=location.origin;
+  player=new YT.Player('ytplayer',{width:'100%',height:'100%',playerVars:pv,
+    events:{onReady:()=>{ready=true;if(wantStart)beginPlay();},onStateChange:onState,onError:onErr}});
+}
+function beginPlay(){ if(target) loadCurrent(); }
+function onState(e){if(e.data===YT.PlayerState.ENDED){clearTimeout(watchdog);send({type:'ended',videoId:currentVideo});}
+  if(e.data===YT.PlayerState.PLAYING){playing=true;everPlayed=true;clearTimeout(watchdog);setPP();document.getElementById('idle').style.display='none';setSpin(true);}
+  if(e.data===YT.PlayerState.PAUSED){playing=false;setPP();setSpin(false);}}
+function onErr(e){ // 影片載入錯誤：先重載一次，真的不行才換下一首
+  if(!currentVideo) return;
+  if(loadAttempt < 1){
+    loadAttempt++; clearTimeout(watchdog);
+    toast('載入不順，重試一次…');
+    setTimeout(()=>{ if(currentVideo) attemptLoad(); }, 900);
+  } else {
+    toast('這首無法播放（錯誤'+e.data+'），換下一首');
+    setTimeout(()=>{ if(currentVideo) send({type:'ended',videoId:currentVideo}); }, 800);
+  }
+}
+function setPP(){const b=document.getElementById('pp');if(b)b.textContent=playing?'⏸ 暫停':'▶ 播放';}
+function setSpin(on){document.getElementById('cover').classList.toggle('on',on);}
+function attemptLoad(){
+  if(!ready||!currentVideo) return;
+  everPlayed=false;
+  player.loadVideoById(currentVideo);
+  document.getElementById('idle').style.display='none'; setSpin(true);
+  clearTimeout(watchdog); var vid=currentVideo;
+  watchdog=setTimeout(()=>{
+    if(everPlayed || currentVideo!==vid) return;
+    if(loadAttempt < 1){ loadAttempt++; toast('載入較慢，重試一次…'); attemptLoad(); }
+    else { toast('這首載入失敗，自動換下一首'); send({type:'ended',videoId:vid}); }
+  }, 22000);
+}
+function loadCurrent(){
+  if(ready && target){
+    currentVideo=target.videoId; loadAttempt=0;
+    attemptLoad();
+  }
+}
+
+let ws,reconnectT;
+function connect(){ws=new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host);
+  ws.onopen=()=>{ if(helloSent) send({type:'hello',role:'player'}); }; ws.onmessage=(e)=>handle(JSON.parse(e.data));
+  ws.onclose=()=>{clearTimeout(reconnectT);reconnectT=setTimeout(connect,1500);};}
+function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));}
+function handle(m){
+  if(m.type==='state' && pendingStart && !helloSent){
+    pendingStart=false;
+    if((m.players||0) >= 1){
+      if(!confirm('⚠️ 已經有一台在放送了，確定要接手嗎？\n（兩台同時放會聲音重疊）')){ abortStart(); return; }
+    }
+    finalizeStart();
+  }
+  if(m.type==='state')render(m);else if(m.type==='online')document.getElementById('onlineN').textContent=m.online;
+  else if(m.type==='chat')flyDanmaku(m);else if(m.type==='command'){if(m.action==='load')maybeLoad();else doCommand(m);}}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmt(t){t=Math.max(0,t|0);const m=(t/60)|0,s=t%60;return m+':'+String(s).padStart(2,'0');}
+function maybeLoad(){ if(target&&target.videoId!==currentVideo) loadCurrent(); }
+function render(s){document.getElementById('onlineN').textContent=s.online;
+  const cover=document.getElementById('cover');
+  if(s.nowPlaying){target=s.nowPlaying;document.getElementById('ntitle').textContent=s.nowPlaying.title;
+    document.getElementById('nby').innerHTML='由 <b>'+esc(s.nowPlaying.requester)+'</b> 點播';
+    cover.src=s.nowPlaying.thumbnail;cover.classList.remove('empty');
+    if(started&&ready&&s.nowPlaying.videoId!==currentVideo)loadCurrent();
+  }else{target=null;currentVideo=null;document.getElementById('ntitle').textContent='尚未開台';document.getElementById('nby').textContent='';
+    cover.classList.add('empty');document.getElementById('idle').style.display='flex';document.getElementById('bar').style.width='0%';setSpin(false);
+    if(player&&player.stopVideo)try{player.stopVideo()}catch(e){}}
+  document.getElementById('queueN').textContent=s.queue.length;const q=document.getElementById('qlist');
+  q.innerHTML=s.queue.length?s.queue.map((it,i)=>'<div class="qi"><div class="pos">'+(i+1)+'</div><img src="'+it.thumbnail+'"/>'+
+    '<div style="min-width:0"><div class="t">'+esc(it.title)+'</div><div class="by">由 <b>'+esc(it.requester)+'</b> 點播</div></div></div>').join('')
+    :'<div class="qempty"><div class="big">📭</div><div>沒人點歌時，自動DJ會墊熱門歌～</div></div>';}
+setInterval(()=>{if(ready&&player&&player.getCurrentTime&&currentVideo){try{
+  const pos=player.getCurrentTime(),dur=player.getDuration(),st=player.getPlayerState();
+  send({type:'progress',position:pos,duration:dur,paused:st===2});
+  document.getElementById('bar').style.width=(dur?Math.min(100,pos/dur*100):0)+'%';
+  document.getElementById('cur').textContent=fmt(pos);document.getElementById('dur').textContent=fmt(dur);
+  const np=(st===1);if(np!==playing){playing=np;setPP();setSpin(np);}
+  if(dur>0&&pos>=dur-1.0&&st!==1)send({type:'ended',videoId:currentVideo});
+}catch(e){}}},600);
+function togglePlay(){if(!player||!target)return;playing?player.pauseVideo():player.playVideo();}
+function skip(){send({type:'skip'});}
+function vol(d){if(!player)return;try{player.setVolume(Math.max(0,Math.min(100,player.getVolume()+d)));}catch(e){}}
+function fullscreenVideo(){const v=document.querySelector('.video');if(v.requestFullscreen)v.requestFullscreen();}
+function doCommand(m){if(!player)return;try{if(m.action==='pause')player.pauseVideo();if(m.action==='play')player.playVideo();if(m.action==='volume')player.setVolume(m.value);}catch(e){}}
+function flyDanmaku(m){const layer=document.getElementById('danmaku');const d=document.createElement('div');d.className='dm';
+  d.innerHTML='<b>'+esc(m.name)+'</b>'+esc(m.text);d.style.top=(8+Math.random()*72)+'%';d.style.animationDuration=(8+Math.random()*4)+'s';layer.appendChild(d);setTimeout(()=>d.remove(),13000);}
+function toast(msg){const t=document.createElement('div');t.className='dm';t.style.top='2%';t.style.background='#222';t.style.color='#fff';t.textContent=msg;t.style.animationDuration='9s';document.getElementById('danmaku').appendChild(t);setTimeout(()=>t.remove(),9000);}
+</script>
+</body>
+</html>
